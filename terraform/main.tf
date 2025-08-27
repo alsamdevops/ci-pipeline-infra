@@ -1,32 +1,20 @@
-provider "aws" {
-  region = "us-east-1"
-}
-
-resource "aws_instance" "c8" {
-  ami           = "ami-0c02fb55956c7d316" # Amazon Linux 2
+resource "aws_instance" "frontend" {
+  ami           = "ami-0a232144cf20a27a5"   # Amazon Linux 2 AMI (update with latest)
   instance_type = "t2.micro"
-  key_name      = "your-keypair"
-  tags = {
-    Name = "c8.local"
-  }
+  tags = { Name = "c8.local" }
 }
 
-resource "aws_instance" "u21" {
-  ami           = "ami-06b21ccaeff8cd686" # Ubuntu 21.04
+resource "aws_instance" "backend" {
+  ami           = "ami-0bbdd8c17ed981ef9"   # Ubuntu 21.04 AMI (update with latest)
   instance_type = "t2.micro"
-  key_name      = "your-keypair"
-  tags = {
-    Name = "u21.local"
-  }
+  tags = { Name = "u21.local" }
 }
 
-output "ansible_inventory" {
-  value = <<EOT
-[frontend]
-c8.local ansible_host=${aws_instance.c8.public_ip} ansible_user=ec2-user ansible_python_interpreter=/usr/bin/python3
+output "frontend_ip" {
+  value = aws_instance.frontend.public_ip
+}
 
-[backend]
-u21.local ansible_host=${aws_instance.u21.public_ip} ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3
-EOT
+output "backend_ip" {
+  value = aws_instance.backend.public_ip
 }
 

@@ -1,26 +1,46 @@
 pipeline {
-  agent any
+    agent any
 
-  stages {
-    stage('Terraform Init & Apply') {
-      steps {
-        sh '''
-          cd terraform
-          terraform init
-          terraform apply -auto-approve
-          terraform output ansible_inventory > ../inventory.ini
-        '''
-      }
+    environment {
+        AWS_REGION = "us-east-1"
+        KEY_NAME   = "ansible-key"
     }
 
-    stage('Run Ansible Playbook') {
-      steps {
-        sh '''
-          cd ansible
-          ansible-playbook site.yml
-        '''
-      }
+    stages {
+        stage('Terraform Init') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform init'
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform apply -auto-approve -var key_name=$KEY_NAME'
+                }
+            }
+        }
+
+        stage('Generate Inventory') {
+            steps {
+                dir('terraform') {
+                    script {
+                        def inventory = sh(script: "terraform output -raw ansible_inventory", returnStdout: true).trim()
+                        writeFile file: "../ansible/inventory", text: inventory
+                    }
+                }
+            }
+        }
+
+        stage('Run Ansible Playbook') {
+            steps {
+                dir('ansible') {
+                    sh 'ansible-playbook playbook.yml'
+                }
+            }
+        }
     }
-  }
 }
 
