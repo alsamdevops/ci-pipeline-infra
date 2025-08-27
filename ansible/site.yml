@@ -1,0 +1,81 @@
+---
+- name: Apply common config
+  hosts: all
+  become: yes
+  tasks:
+    - name: Disable SELinux (Amazon Linux)
+      command: setenforce 0
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
+
+    - name: Disable SELinux permanently (Amazon Linux)
+      replace:
+        path: /etc/selinux/config
+        regexp: '^SELINUX=.*'
+        replace: 'SELINUX=disabled'
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
+
+    - name: Disable firewalld (Amazon Linux)
+      service:
+        name: firewalld
+        state: stopped
+        enabled: no
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
+
+    - name: Disable ufw (Ubuntu)
+      service:
+        name: ufw
+        state: stopped
+        enabled: no
+      when: ansible_os_family == "Debian"
+      ignore_errors: yes
+
+- name: Configure frontend (c8.local)
+  hosts: frontend
+  become: yes
+  tasks:
+    - name: Install nginx
+      package:
+        name: nginx
+        state: present
+
+    - name: Configure nginx proxy
+      copy:
+        dest: /etc/nginx/conf.d/proxy.conf
+        content: |
+          server {
+              listen 80;
+              location / {
+                  proxy_pass http://{{ hostvars['u21.local']['ansible_host'] }}:19999;
+              }
+          }
+    - name: Restart nginx
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes
+
+- name: Configure backend (u21.local)
+  hosts: backend
+  become: yes
+  tasks:
+    - name: Install Netdata prerequisites
+      apt:
+        name: software-properties-common
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install Netdata
+      shell: bash <(curl -Ss https://my-netdata.io/kickstart.sh) --disable-telemetry
+      args:
+        executable: /bin/bash
+
+    - name: Ensure Netdata is running
+      service:
+        name: netdata
+        state: started
+        enabled: yes
+
